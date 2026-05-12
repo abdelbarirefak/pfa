@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Stepper } from '@/components/ui/stepper';
 import { StepTrackDetails, type TrackDetailsData } from './step-track-details';
@@ -9,9 +9,9 @@ import { StepFileUpload } from './step-file-upload';
 import { StepReviewSubmit } from './step-review-submit';
 import { submissionsApi } from '@/lib/api';
 import { getStoredUser } from '@/lib/auth';
-import { Loader2, ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Send, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Conference, Track } from '@/types';
+import type { Conference, PaperSubmission, Track } from '@/types';
 
 // ── Wizard Steps Configuration ────────────────────────────────────────────────
 
@@ -46,8 +46,11 @@ export function SubmissionWizard() {
   const [cachedConference, setCachedConference] = useState<Conference | undefined>();
   const [cachedTrack, setCachedTrack] = useState<Track | undefined>();
 
-  // State for the form trigger from parent (step 1 uses its own form)
   const [triggerStep1Submit, setTriggerStep1Submit] = useState(false);
+
+  // Draft recovery
+  const [existingDraft, setExistingDraft] = useState<PaperSubmission | null>(null);
+  const [draftBannerDismissed, setDraftBannerDismissed] = useState(false);
 
   // Wizard data
   const [state, setState] = useState<WizardState>(() => {
@@ -71,6 +74,42 @@ export function SubmissionWizard() {
       submissionId: null,
     };
   });
+
+  // ── Draft Recovery ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    const me = getStoredUser();
+    if (!me) return;
+    submissionsApi
+      .listMine(me.id)
+      .then((subs) => {
+        const drafts = subs.filter((s) => s.status === 'DRAFT');
+        if (drafts.length > 0) {
+          // Show the most recently updated draft
+          const latest = drafts.sort((a, b) =>
+            (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+          )[0];
+          setExistingDraft(latest);
+        }
+      })
+      .catch(() => { /* non-critical — ignore */ });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function resumeDraft(draft: PaperSubmission) {
+    setState((prev) => ({
+      ...prev,
+      submissionId: draft.id,
+      trackDetails: {
+        conferenceId: draft.conferenceId,
+        trackId: draft.trackId,
+        title: draft.title,
+        abstract: draft.abstract,
+      },
+    }));
+    setExistingDraft(null);
+    setDraftBannerDismissed(true);
+    goToStep(2); // Go to authors step since track details are restored
+    toast.success('Draft resumed. Continue from where you left off.');
+  }
 
   // ── Navigation helpers ──────────────────────────────────────────────────────
 
@@ -218,6 +257,40 @@ export function SubmissionWizard() {
 
   return (
     <div className="max-w-3xl mx-auto">
+      {/* Draft Recovery Banner */}
+      {existingDraft && !draftBannerDismissed && (
+        <div className="flex items-center justify-between gap-4 bg-amber-50 border border-amber-200 rounded px-4 py-3 mb-5">
+          <div className="flex items-center gap-2.5">
+            <RotateCcw className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                You have an unfinished draft
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5 truncate max-w-xs">
+                &ldquo;{existingDraft.title}&rdquo;
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => resumeDraft(existingDraft)}
+              className="px-3 py-1.5 text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors"
+            >
+              Resume
+            </button>
+            <button
+              type="button"
+              onClick={() => { setExistingDraft(null); setDraftBannerDismissed(true); }}
+              className="p-1.5 text-amber-500 hover:text-amber-700 transition-colors"
+              aria-label="Dismiss draft notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stepper */}
       <div className="bg-white border border-slate-200 rounded p-6 mb-6">
         <Stepper steps={WIZARD_STEPS} currentStep={currentStep} />

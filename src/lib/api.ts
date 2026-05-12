@@ -5,7 +5,7 @@
  * All authenticated requests automatically include the JWT Bearer token.
  */
 
-import { getToken } from './auth';
+import { getToken, clearAuth, isTokenExpired } from './auth';
 import type {
   LoginPayload,
   LoginResponse,
@@ -38,6 +38,16 @@ async function request<T>(
   const { method = 'GET', body, isFormData = false } = options;
 
   const token = getToken();
+
+  // Proactively redirect if the stored token is already expired
+  if (token && isTokenExpired()) {
+    clearAuth();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login?session=expired';
+    }
+    throw { message: 'Session expired. Please log in again.', status: 401 } as ApiError;
+  }
+
   const headers: Record<string, string> = {};
 
   if (token) {
@@ -59,6 +69,13 @@ async function request<T>(
   });
 
   if (!response.ok) {
+    // 401 Unauthorized — token is missing, expired, or revoked
+    if (response.status === 401) {
+      clearAuth();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?session=expired';
+      }
+    }
     let message = `HTTP ${response.status}: ${response.statusText}`;
     try {
       const errBody = await response.json();

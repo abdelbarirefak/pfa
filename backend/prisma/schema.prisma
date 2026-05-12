@@ -1,0 +1,138 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma Schema — AcademicConf Platform
+// Database: SQLite (local file, no server required)
+// Generated client: @prisma/client
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+// SQLite does not support native enums — using String with validation in app layer.
+
+// UserRole: AUTHOR | REVIEWER | PC_CHAIR | ADMIN
+// ConferenceStatus: UPCOMING | OPEN | CLOSED | ARCHIVED
+// SubmissionStatus: DRAFT | SUBMITTED | UNDER_REVIEW | ACCEPTED | REJECTED
+// ReviewStatus: PENDING | IN_PROGRESS | COMPLETED
+
+// ── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id                   String        @id @default(cuid())
+  firstName            String
+  lastName             String
+  email                String        @unique
+  passwordHash         String
+  academicAffiliation  String
+  country              String?
+  biography            String?
+  metaLink             String?       // e.g. Google Scholar URL
+  role                 String        @default("AUTHOR")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  // Relations
+  authorships          Authorship[]
+  reviews              Review[]
+
+  @@map("users")
+}
+
+// ── Conference ────────────────────────────────────────────────────────────────
+
+model Conference {
+  id                   String        @id @default(cuid())
+  name                 String
+  location             String
+  startDate            DateTime
+  endDate              DateTime
+  submissionDeadline   DateTime
+  status               String        @default("UPCOMING")
+  description          String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  // Relations
+  tracks               Track[]
+
+  @@map("conferences")
+}
+
+// ── Track ─────────────────────────────────────────────────────────────────────
+
+model Track {
+  id           String           @id @default(cuid())
+  name         String
+  conferenceId String
+  createdAt    DateTime         @default(now())
+
+  // Relations
+  conference   Conference       @relation(fields: [conferenceId], references: [id], onDelete: Cascade)
+  submissions  PaperSubmission[]
+
+  @@map("tracks")
+}
+
+// ── PaperSubmission ───────────────────────────────────────────────────────────
+
+model PaperSubmission {
+  id                  String        @id @default(cuid())
+  title               String
+  abstract            String
+  manuscriptFileUrl   String?
+  status              String        @default("DRAFT")
+  trackId             String
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  track               Track         @relation(fields: [trackId], references: [id])
+  authorships         Authorship[]
+  reviews             Review[]
+
+  @@map("paper_submissions")
+}
+
+// ── Authorship ────────────────────────────────────────────────────────────────
+
+model Authorship {
+  id                    String          @id @default(cuid())
+  paperId               String
+  userId                String
+  authorSequenceOrder   Int             @default(1)
+  isCorrespondingAuthor Boolean         @default(false)
+  createdAt             DateTime        @default(now())
+
+  // Relations
+  paper                 PaperSubmission @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  user                  User            @relation(fields: [userId], references: [id])
+
+  @@unique([paperId, userId])
+  @@map("authorships")
+}
+
+// ── Review ────────────────────────────────────────────────────────────────────
+
+model Review {
+  id                  String          @id @default(cuid())
+  paperId             String
+  reviewerId          String
+  comments            String          @default("")
+  evaluationComments  String          @default("")
+  status              String          @default("PENDING")
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  // Relations
+  paper               PaperSubmission @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  reviewer            User            @relation(fields: [reviewerId], references: [id])
+
+  @@unique([paperId, reviewerId])
+  @@map("reviews")
+}

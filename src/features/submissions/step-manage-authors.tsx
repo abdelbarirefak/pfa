@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { usersApi } from '@/lib/api';
 import { cn, getInitials } from '@/lib/utils';
 import type { User, Authorship } from '@/types';
@@ -43,12 +43,17 @@ export function StepManageAuthors({ authors, onChange }: StepManageAuthorsProps)
 
   // ── Search users ───────────────────────────────────────────────────────────
 
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = useCallback(async (query: string) => {
+    const q = query.trim();
+    if (!q) {
+      setSearchResults([]);
+      setSearchError('');
+      return;
+    }
     setIsSearching(true);
     setSearchError('');
     try {
-      const users = await usersApi.search(searchQuery.trim());
+      const users = await usersApi.search(q);
       setSearchResults(users);
       if (users.length === 0) {
         setSearchError('No users found with that email address.');
@@ -58,7 +63,19 @@ export function StepManageAuthors({ authors, onChange }: StepManageAuthorsProps)
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery]);
+  }, []);
+
+  // Debounce: fire search 400 ms after the user stops typing
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 400);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery, handleSearch]);
 
   // ── Add author ─────────────────────────────────────────────────────────────
 
@@ -126,13 +143,13 @@ export function StepManageAuthors({ authors, onChange }: StepManageAuthorsProps)
             type="email"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch(searchQuery))}
             placeholder="colleague@university.edu"
             className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0F1B2D] focus:border-transparent transition"
           />
           <button
             type="button"
-            onClick={handleSearch}
+            onClick={() => handleSearch(searchQuery)}
             disabled={isSearching || !searchQuery.trim()}
             className="flex items-center gap-1.5 px-4 py-2 bg-[#0F1B2D] hover:bg-[#1E3A5F] text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables (never commit!)
+.env
+
+# SQLite database file
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
+
+# Uploaded manuscript files
+uploads/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

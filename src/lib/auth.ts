@@ -1,10 +1,11 @@
 /**
- * auth.ts — Simple JWT authentication helpers using localStorage.
+ * auth.ts — Simple JWT authentication helpers using localStorage + cookies.
  *
  * Strategy:
- *   - JWT token stored under key `acconf_token`
- *   - User object stored under key `acconf_user`
+ *   - JWT token stored under key `acconf_token` (localStorage + cookie)
+ *   - User object stored under key `acconf_user` (localStorage only)
  *   - All API requests include `Authorization: Bearer <token>`
+ *   - Cookie mirrors the token so Next.js middleware can guard routes SSR
  */
 
 import type { User } from '@/types';
@@ -21,10 +22,14 @@ export function getToken(): string | null {
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  // Mirror in a cookie so the Next.js middleware (Edge runtime) can read it
+  document.cookie = `${TOKEN_KEY}=${token}; path=/; SameSite=Lax`;
 }
 
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  // Expire the cookie immediately
+  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
 }
 
 // ── User helpers ──────────────────────────────────────────────────────────────
@@ -51,6 +56,25 @@ export function removeStoredUser(): void {
 
 export function isAuthenticated(): boolean {
   return !!getToken();
+}
+
+/**
+ * Returns true if the stored JWT is expired.
+ * Decodes the payload (base64) without verifying the signature.
+ * Returns false if there is no token or if the token has no `exp` claim.
+ */
+export function isTokenExpired(): boolean {
+  const token = getToken();
+  if (!token) return false;
+  try {
+    const [, payloadB64] = token.split('.');
+    const payload = JSON.parse(atob(payloadB64)) as { exp?: number };
+    if (!payload.exp) return false;
+    // exp is in seconds; Date.now() is in milliseconds
+    return payload.exp * 1000 < Date.now();
+  } catch {
+    return false;
+  }
 }
 
 /** Clear all auth state (call on logout) */
