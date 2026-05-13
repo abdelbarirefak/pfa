@@ -37,8 +37,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-os.makedirs(settings.upload_dir, exist_ok=True) if not os.environ.get("RENDER") else None
-if not os.environ.get("RENDER"):
+is_production = os.environ.get("RENDER") or os.environ.get("KOYEB") or os.environ.get("RAILWAY")
+if not is_production:
+    os.makedirs(settings.upload_dir, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 
