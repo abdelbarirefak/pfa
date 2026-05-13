@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+__pycache__/
+*.pyc
+*.pyo
 
 # Build output
 dist/
@@ -7,17 +10,22 @@ dist/
 # Environment variables (never commit!)
 .env
 
-# SQLite database file
-prisma/*.db
-prisma/*.db-journal
-prisma/*.db-shm
-prisma/*.db-wal
+# SQLite database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
 
 # Uploaded manuscript files
 uploads/
 
-# TypeScript build info
+# Python
 *.tsbuildinfo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
 
 # Logs
 *.log

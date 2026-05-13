@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer base {
   :root {
@@ -20,7 +22,6 @@
     color: #0f172a; /* slate-900 */
   }
 
-  /* Scrollbar styling */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -36,7 +37,6 @@
     background: #94a3b8;
   }
 
-  /* Focus ring */
   :focus-visible {
     outline: 2px solid #0F1B2D;
     outline-offset: 2px;
